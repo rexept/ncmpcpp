@@ -235,7 +235,7 @@ bool Configuration::read(const std::vector<std::string> &config_paths, bool igno
 	p.add("visualizer_in_stereo", &visualizer_in_stereo, "yes", yes_no);
 	p.add("visualizer_type", &visualizer_type,
 #ifdef HAVE_FFTW3_H
-	      "spectrum"
+	      "graph"
 #else
 	      "ellipse"
 #endif

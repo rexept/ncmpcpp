@@ -565,6 +565,138 @@ void Visualizer::DrawFrequencySpectrumStereo(const int16_t *buf_left, const int1
 	DrawFrequencySpectrum(buf_right, samples, height, w.getHeight() - height);
 }
 
+/**********************************************************************/
+
+void Visualizer::DrawSoundGraph(const int16_t *buf, ssize_t samples, size_t y_offset, size_t height) {
+	// If right channel is drawn, bars descend from the top to the bottom.
+	// const bool flipped = y_offset > 0;
+    const bool flipped = false;
+
+    const size_t bar_width = 2;
+    const size_t gap_width = 1.;
+    const size_t stride = bar_width + gap_width;
+
+	// copy samples to fftw input array and apply Hamming window
+	ApplyWindow(m_fftw_input, buf, samples);
+	fftw_execute(m_fftw_plan);
+
+	// Count magnitude of each frequency and normalize
+	for (size_t i = 0; i < m_fftw_results; ++i)
+		m_freq_magnitudes[i] = sqrt(
+			m_fftw_output[i][0]*m_fftw_output[i][0]
+		+	m_fftw_output[i][1]*m_fftw_output[i][1]
+		) / (DFT_NONZERO_SIZE);
+
+	m_bar_heights.clear();
+
+	const size_t win_width = w.getWidth();
+
+	size_t cur_bin = 0;
+	while (cur_bin < m_fftw_results && Bin2Hz(cur_bin) < m_dft_freqspace[0])
+		++cur_bin;
+	for (size_t x = 0; x + bar_width <= win_width; x += stride)
+	{
+		double bar_height = 0;
+
+		// accumulate bins
+		size_t count = 0;
+		// check right bound
+		while (cur_bin < m_fftw_results && Bin2Hz(cur_bin) < m_dft_freqspace[x])
+		{
+			// check left bound if not first index
+			if (x == 0 || Bin2Hz(cur_bin) >= m_dft_freqspace[x-1])
+			{
+				bar_height += m_freq_magnitudes[cur_bin];
+				++count;
+			}
+			++cur_bin;
+		}
+
+		if (count == 0)
+			continue;
+
+		// average bins
+		bar_height /= count;
+
+		// apply scaling to bar heights
+		if (Config.visualizer_spectrum_log_scale_y) {
+			bar_height = (20 * log10(bar_height) + DYNAMIC_RANGE + GAIN) / DYNAMIC_RANGE;
+		} else {
+			// apply gain
+			bar_height *= pow(10, 1.8 + GAIN / 20);
+			// buff higher frequencies
+			bar_height *= log2(2 + x) * 80.0/win_width;
+			// moderately normalize the heights
+			bar_height = pow(bar_height, 0.65);
+
+			//bar_height = pow(10, 1 + GAIN / 20) * bar_height;
+		}
+		// Scale bar height between 0 and w.getHeight()  -  full height
+		bar_height = bar_height > 0 ? bar_height * w.getHeight() : 0;
+		bar_height = bar_height > w.getHeight() ? w.getHeight() : bar_height;
+
+		m_bar_heights.emplace_back(x * stride, bar_height);
+	}
+
+	size_t h_idx = 0;
+	for (size_t bar = 0; bar < m_bar_heights.size(); ++bar)
+	{
+		const size_t x = m_bar_heights[bar].first;
+		const double bar_height = m_bar_heights[bar].second;
+
+        for (size_t bw = 0; bw < bar_width; ++bw)
+        {
+            size_t draw_x = x + bw;
+            if (draw_x >= win_width) continue;
+
+            for (size_t j = 0; j < bar_height; ++j)
+            {
+                size_t y = flipped ? y_offset+j : y_offset+height-j-1;
+                auto color = toColor(j, height, false);
+                std::wstring ch;
+        
+                // select character to draw
+                if (Config.visualizer_spectrum_smooth_look) {
+                    // smooth
+                    const size_t size = SMOOTH_CHARS.size();
+                    const size_t idx = static_cast<size_t>(size*bar_height) % size;
+                    if (j < bar_height-1 || idx == size-1) {
+                        // full height
+                        ch = SMOOTH_CHARS[size-1];
+                    } else {
+                        // fractional height
+                        if (flipped) {
+                            if (Config.visualizer_spectrum_smooth_look_legacy_chars) {
+                                ch = SMOOTH_CHARS_FLIPPED[idx];
+                            } else {
+                                ch = SMOOTH_CHARS[size-idx-2];
+                                color = NC::FormattedColor(color.color(), {NC::Format::Reverse});
+                            }
+                        } else {
+                            ch = SMOOTH_CHARS[idx];
+                        }
+                    }
+                } else  {
+                    // default, non-smooth
+                    ch = Config.visualizer_chars[1];
+                }
+
+                // draw character on screen
+                w << NC::XY(x, y)
+                  << color
+                  << ch
+                  << NC::FormattedColor::End<>(color);
+            }
+        }
+	}
+}
+
+void Visualizer::DrawSoundGraphStereo(const int16_t *buf_left, const int16_t *buf_right, ssize_t samples, size_t height) {
+	// DrawSoundGraph(buf_left, samples, 0, height); // Draws Top
+	DrawSoundGraph(buf_right, samples, height, w.getHeight() - height); // Draws bottom
+}
+
+
 double Visualizer::InterpolateCubic(size_t x, size_t h_idx)
 {
 	const double x_next = m_bar_heights[h_idx].first;
@@ -747,6 +879,11 @@ void Visualizer::InitVisualization()
 		draw = &Visualizer::DrawFrequencySpectrum;
 		drawStereo = &Visualizer::DrawFrequencySpectrumStereo;
 		break;
+	case VisualizerType::Graph:
+		rendered_samples = DFT_NONZERO_SIZE;
+		draw = &Visualizer::DrawSoundGraph;
+		drawStereo = &Visualizer::DrawSoundGraphStereo;
+		break;
 #	endif // HAVE_FFTW3_H
 	case VisualizerType::Ellipse:
 		// Keep constant amount of samples on the screen regardless of fps.
@@ -803,6 +940,9 @@ void Visualizer::ToggleVisualizationType()
 #		ifdef HAVE_FFTW3_H
 		case VisualizerType::Spectrum:
 			Config.visualizer_type = VisualizerType::Ellipse;
+			break;
+		case VisualizerType::Graph:
+			Config.visualizer_type = VisualizerType::Graph;
 			break;
 #		endif // HAVE_FFTW3_H
 		case VisualizerType::Ellipse:

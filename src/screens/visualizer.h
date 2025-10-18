@@ -74,6 +74,8 @@ private:
 #	ifdef HAVE_FFTW3_H
 	void DrawFrequencySpectrum(const int16_t *, ssize_t, size_t, size_t);
 	void DrawFrequencySpectrumStereo(const int16_t *, const int16_t *, ssize_t, size_t);
+	void DrawSoundGraph(const int16_t *buf, ssize_t samples, size_t y_offset, size_t height);
+    void DrawSoundGraphStereo(const int16_t *buf_left, const int16_t *buf_right, ssize_t samples, size_t height);
 	void ApplyWindow(double *, const int16_t *, ssize_t);
 	void GenLogspace();
 	void GenLinspace();

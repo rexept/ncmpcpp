@@ -49,6 +49,7 @@ enum class VisualizerType {
 	WaveFilled,
 #	ifdef HAVE_FFTW3_H
 	Spectrum,
+    Graph,
 #	endif // HAVE_FFTW3_H
 	Ellipse
 };

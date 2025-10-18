@@ -184,6 +184,9 @@ std::ostream &operator<<(std::ostream& os, VisualizerType vt)
 		case VisualizerType::Spectrum:
 			os << "frequency spectrum";
 			break;
+		case VisualizerType::Graph:
+			os << "cava graph";
+			break;
 #		endif // HAVE_FFTW3_H
 		case VisualizerType::Ellipse:
 			os << "sound ellipse";
@@ -203,6 +206,8 @@ std::istream &operator>>(std::istream& is, VisualizerType &vt)
 #	ifdef HAVE_FFTW3_H
 	else if (svt == "spectrum")
 		vt = VisualizerType::Spectrum;
+	else if (svt == "graph")
+		vt = VisualizerType::Graph;
 #	endif // HAVE_FFTW3_H
 	else if (svt == "ellipse")
 		vt = VisualizerType::Ellipse;
