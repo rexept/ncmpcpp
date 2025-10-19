@@ -573,7 +573,7 @@ void Visualizer::DrawSoundGraph(const int16_t *buf, ssize_t samples, size_t y_of
     const bool flipped = false;
 
     const size_t bar_width = 2;
-    const size_t gap_width = 1.;
+    const size_t gap_width = 0.1;
     const size_t stride = bar_width + gap_width;
 
 	// copy samples to fftw input array and apply Hamming window
@@ -592,8 +592,7 @@ void Visualizer::DrawSoundGraph(const int16_t *buf, ssize_t samples, size_t y_of
 	const size_t win_width = w.getWidth();
 
 	size_t cur_bin = 0;
-	while (cur_bin < m_fftw_results && Bin2Hz(cur_bin) < m_dft_freqspace[0])
-		++cur_bin;
+
 	for (size_t x = 0; x + bar_width <= win_width; x += stride)
 	{
 		double bar_height = 0;
@@ -635,8 +634,8 @@ void Visualizer::DrawSoundGraph(const int16_t *buf, ssize_t samples, size_t y_of
 		bar_height = bar_height > 0 ? bar_height * w.getHeight() : 0;
 		bar_height = bar_height > w.getHeight() ? w.getHeight() : bar_height;
 
-		m_bar_heights.emplace_back(x * stride, bar_height);
-	}
+	    m_bar_heights.emplace_back(x, bar_height);
+}
 
 	size_t h_idx = 0;
 	for (size_t bar = 0; bar < m_bar_heights.size(); ++bar)
