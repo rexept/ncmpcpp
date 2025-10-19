@@ -592,8 +592,8 @@ void Visualizer::DrawSoundGraph(const int16_t *buf, ssize_t samples, size_t y_of
 	const size_t win_width = w.getWidth();
 
 	size_t cur_bin = 0;
-    while (cur_bin < m_fftw_results && Bin2Hz(cur_bin) < m_dft_freqspace[0])
-        ++cur_bin;
+    // while (cur_bin < m_fftw_results && Bin2Hz(cur_bin) < m_dft_freqspace[0])
+    //     ++cur_bin;
 
 	for (size_t x = 0; x + bar_width <= win_width; x += stride)
 	{
