@@ -572,9 +572,9 @@ void Visualizer::DrawSoundGraph(const int16_t *buf, ssize_t samples, size_t y_of
 	// const bool flipped = y_offset > 0;
     const bool flipped = false;
 
-    const size_t bar_width = 2;
-    const size_t gap_width = 0.1;
-    const size_t stride = bar_width + gap_width;
+    const double bar_width = 2;
+    const double gap_width = 0.1;
+    const double stride = bar_width + gap_width;
 
 	// copy samples to fftw input array and apply Hamming window
 	ApplyWindow(m_fftw_input, buf, samples);
