@@ -694,7 +694,14 @@ void Visualizer::DrawSoundGraph(const int16_t *buf, ssize_t samples, size_t y_of
 
 void Visualizer::DrawSoundGraphStereo(const int16_t *buf_left, const int16_t *buf_right, ssize_t samples, size_t height) {
 	// DrawSoundGraph(buf_left, samples, 0, height); // Draws Top
-	DrawSoundGraph(buf_right, samples, height, w.getHeight() - height); // Draws bottom
+    std::vector<int16_t> mono(samples);
+    
+    for (ssize_t i = 0; i < samples; ++i) {
+        // wont scale amplitude dynamically
+        int32_t mixed = static_cast<int32_t>(buf_left[i]) + static_cast<int32_t>(buf_right[i]);
+        mono[i] = static_cast<int16_t>(mixed / 2);
+    }
+	DrawSoundGraph(mono.data(), samples, height, w.getHeight() - height); // Draws bottom
 }
 
 
