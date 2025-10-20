@@ -567,70 +567,73 @@ void Visualizer::DrawFrequencySpectrumStereo(const int16_t *buf_left, const int1
 
 /**********************************************************************/
 
-void Visualizer::DrawSoundGraph(const int16_t *buf, ssize_t samples, size_t y_offset, size_t height) {
-	// If right channel is drawn, bars descend from the top to the bottom.
-	// const bool flipped = y_offset > 0;
-    const bool flipped = false;
+/**********************************************************************/
 
-    const double bar_width = 2;
-    const double gap_width = 0.05;
-    const double stride = bar_width + gap_width;
+void Visualizer::DrawSoundGraph(const int16_t *buf, ssize_t samples,
+                                size_t y_offset, size_t height) {
+  const bool flipped = false;
 
-	// copy samples to fftw input array and apply Hamming window
-	ApplyWindow(m_fftw_input, buf, samples);
-	fftw_execute(m_fftw_plan);
+  const double bar_width = 2;
+  const double gap_width = 0.05;
+  const double stride = bar_width + gap_width;
 
-	// Count magnitude of each frequency and normalize
-	for (size_t i = 0; i < m_fftw_results; ++i)
-		m_freq_magnitudes[i] = sqrt(
-			m_fftw_output[i][0]*m_fftw_output[i][0]
-		+	m_fftw_output[i][1]*m_fftw_output[i][1]
-		) / (DFT_NONZERO_SIZE);
+  // copy samples to fftw input array and apply Hamming window
+  ApplyWindow(m_fftw_input, buf, samples);
+  fftw_execute(m_fftw_plan);
 
-	m_bar_heights.clear();
-    const size_t win_width = w.getWidth();
+  // Count magnitude of each frequency and normalize
+  for (size_t i = 0; i < m_fftw_results; ++i)
+    m_freq_magnitudes[i] = sqrt(m_fftw_output[i][0] * m_fftw_output[i][0] +
+                                m_fftw_output[i][1] * m_fftw_output[i][1]) /
+                           (DFT_NONZERO_SIZE);
 
-    size_t cur_bin = 0;
-    size_t bar_index = 0;
+  m_bar_heights.clear();
+  const size_t win_width = w.getWidth();
 
-    for (size_t x = 0; x + bar_width <= win_width; x += stride, ++bar_index) {
-      double bar_height = 0;
-      size_t count = 0;
+  size_t cur_bin = 0;
+  size_t bar_index = 0;
 
-      // accumulate bins for this bar
-      while (cur_bin < m_fftw_results &&
-             Bin2Hz(cur_bin) < m_dft_freqspace[bar_index]) {
-        if (bar_index == 0 || Bin2Hz(cur_bin) >= m_dft_freqspace[bar_index - 1]) {
-          bar_height += m_freq_magnitudes[cur_bin];
-          ++count;
-        }
-        ++cur_bin;
-      }
+  for (size_t x = 0; x + bar_width <= win_width; x += stride, ++bar_index) {
+    double bar_height = 0;
+    size_t count = 0;
 
-   // safe average or fallback
-   if (count > 0)
-     bar_height /= count;
+    // accumulate bins for this bar
+   // accumulate bins for this bar — always ensure at least one bin
+size_t bin_limit = (bar_index + 1 < m_dft_freqspace.size())
+                       ? m_dft_freqspace[bar_index + 1]
+                       : m_fftw_results;
+
+while (cur_bin < bin_limit) {
+  bar_height += m_freq_magnitudes[cur_bin];
+  ++count;
+  ++cur_bin;
+}
 
 
-   // scale bar height
-   double scaled_height = bar_height;
-   if (Config.visualizer_spectrum_log_scale_y) {
-     scaled_height =
-         (20 * log10(bar_height) + DYNAMIC_RANGE + GAIN) / DYNAMIC_RANGE;
-   } else {
-     scaled_height *= pow(10, 0.5 + GAIN / 20); // lower sensitivity
-     scaled_height *= 0.7 + log2(1 + x) / 10;   // mild high-frequency boost
-     scaled_height = pow(scaled_height, 0.8);   // moderate compression
-   }
+    // safe average or fallback
+    if (count > 0)
+      bar_height /= count;
+
+
+    // scale bar height
+    double scaled_height = bar_height;
+    if (Config.visualizer_spectrum_log_scale_y) {
+      scaled_height =
+          (20 * log10(bar_height) + DYNAMIC_RANGE + GAIN) / DYNAMIC_RANGE;
+    } else {
+      scaled_height *= pow(10, 0.5 + GAIN / 20); // lower sensitivity
+      scaled_height *= 0.7 + log2(1 + x) / 10;   // mild high-frequency boost
+      scaled_height = pow(scaled_height, 0.8);   // moderate compression
+    }
 
     // multiply by screen height
     scaled_height *= w.getHeight();
 
     // enforce minimum and maximum heights
-    if (scaled_height < 5.0)
-      scaled_height = 5.0;
-    if (scaled_height > w.getHeight())
-      scaled_height = (double)w.getHeight();
+    // if (scaled_height < 5.0)
+    //   scaled_height = 5.0;
+    // if (scaled_height > w.getHeight())
+    //   scaled_height = (double)w.getHeight();
 
     m_bar_heights.emplace_back(x, scaled_height);
   }
@@ -677,6 +680,8 @@ void Visualizer::DrawSoundGraph(const int16_t *buf, ssize_t samples, size_t y_of
     }
   }
 }
+
+
 void Visualizer::DrawSoundGraphStereo(const int16_t *buf_left,
                                       const int16_t *buf_right, ssize_t samples,
                                       size_t height) {
